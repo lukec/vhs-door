@@ -3,14 +3,14 @@ use strict;
 use warnings;
 use WWW::Twitpic;
 use Net::Twitter;
+use FindBin;
+use YAML qw/LoadFile/;
 
 my $arg = shift @ARGV;
 exit unless $arg;
 
-my %Creds = (
-    username => 'vhs45w',
-    password => 'eastvancity',
-);
+my $cred_file = "$FindBin::Bin/../../.twitter-creds.yaml";
+my $Creds = LoadFile($cred_file);
 
 my %msg_map = (
     'open' => 'My door opened!',
@@ -38,7 +38,7 @@ sub send_twitpic {
     my $msg = shift;
     my $image_path = shift;
 
-    my $client = WWW::Twitpic->new( %Creds );
+    my $client = WWW::Twitpic->new( %$Creds );
     my $res = $client->post($image_path => $msg);
     if ($res->is_success) {
 	print "Uploaded picture to twitpic: " . $res->url;
@@ -52,7 +52,7 @@ sub send_twitpic {
 sub send_tweet {
     my $msg = shift;
 
-    my $nt = Net::Twitter->new( %Creds );
+    my $nt = Net::Twitter->new( %$Creds );
     $nt->update($msg);
     print "Sent tweet!\n";
 }
