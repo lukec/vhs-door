@@ -2,11 +2,12 @@
 use strict;
 use warnings;
 use WWW::Twitpic;
+use Net::Twitter;
 
 my $arg = shift @ARGV;
 exit unless $arg;
 
-my $client = WWW::Twitpic->new(
+my %Creds = (
     username => 'vhs45w',
     password => 'eastvancity',
 );
@@ -18,15 +19,46 @@ my %msg_map = (
 
 if (my $msg = $msg_map{$arg}) {
     my $image_path = take_picture();
-    my $res = $client->post($image_path => $msg);
-    warn "Updated twitter '$msg'\n";
+    if (-e $image_path) {
+	eval {
+	    send_twitpic($msg, $image_path);
+	};
+	if ($@) {
+	    send_tweet($msg);
+	}
+    }
+    else {
+	send_tweet($msg);
+    }
 }
 
 exit;
 
+sub send_twitpic {
+    my $msg = shift;
+    my $image_path = shift;
+
+    my $client = WWW::Twitpic->new( %Creds );
+    my $res = $client->post($image_path => $msg);
+    if ($res->is_success) {
+	print "Uploaded picture to twitpic: " . $res->url;
+    }
+    else {
+	die "Failed to upload pic to twitpic: " . $res->error;
+    }
+    unlink $image_path;
+}
+
+sub send_tweet {
+    my $msg = shift;
+
+    my $nt = Net::Twitter->new( %Creds );
+    $nt->update($msg);
+    print "Sent tweet!\n";
+}
+
 sub take_picture {
-    my $filename = "/tmp/door-pic.$$";
-    END { unlink $filename if $filename }
+    my $filename = "/tmp/door-pic.$$.jpeg";
     system("streamer -c /dev/video0 -b 16 -o $filename");
     return $filename;
 }
