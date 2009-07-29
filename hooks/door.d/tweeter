@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use WWW::Twitpic;
+
+my $arg = shift @ARGV;
+exit unless $arg;
+
+my $client = WWW::Twitpic->new(
+    username => 'vhs45w',
+    password => 'eastvancity',
+);
+
+my %msg_map = (
+    'open' => 'My door opened!',
+    closed => 'My door closed!',
+);
+
+if (my $msg = $msg_map{$arg}) {
+    my $image_path = take_picture();
+    my $res = $client->post($image_path => $msg);
+    warn "Updated twitter '$msg'\n";
+}
+
+exit;
+
+sub take_picture {
+    my $filename = "/tmp/door-pic.$$";
+    END { unlink $filename if $filename }
+    system("streamer -c /dev/video0 -b 16 -o $filename");
+    return $filename;
+}
