@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Fcntl ':flock';
+
+sub usage {
+    print <<'END_OF_HELP';
+    USAGE:
+        if-can-lock LOCKFILE [--contents=string] COMMAND [ARGS ...]
+
+        Tries to acquire an exclusive lock on LOCKFILE.  Exits nonzero
+        immediately if LOCKFILE does not exist.  Exits 0 immediately if it is
+        unable to acquire the lock.  Otherwise, execs COMMAND with ARGS (the
+        lock will continue to be held after the exec).  When COMMAND exits,
+        the lock will automatically be released.
+END_OF_HELP
+    exit 0;
+}
+
+usage() if @ARGV < 2;
+
+my $lockfile = shift or die "Must specify lockfile\n";
+my $contents;
+if ( $ARGV[0] && ( $ARGV[0] =~ m/--contents=(.+)/ ) ) {
+    $contents = $1;
+    shift @ARGV;
+}
+usage() unless @ARGV;
+
+my $mode = -e $lockfile ? '+<' : '>';
+
+open L, $mode, $lockfile or die "Can't open $mode $lockfile: $!\n";
+flock L, LOCK_EX|LOCK_NB or exit 1;
+if ( defined $contents ) {
+    $|++;
+    print L $contents, "\n";
+}
+
+system @ARGV;
+my $rc = $?;
+close L;
+unlink $lockfile;
+exit $rc;
+
