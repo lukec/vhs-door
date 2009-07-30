@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Fatal qw/open/;
 use FindBin;
+use POSIX ":sys_wait_h";
 
 my $arduino_file = '/dev/ttyUSB0';
 
@@ -11,7 +12,8 @@ while (my $line = <$fh>) {
     chomp $line;
     next if $line =~ m/^\s*$/;
     my ($command, @args) = split m/\s+/, $line;
-    print "Received command: $command args: (@args)\n";
+    my $now = localtime;
+    print "$now:  Received command: $command args: (@args)\n";
 
     my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
     my @scripts = glob("$script_dir/*");
@@ -24,6 +26,11 @@ while (my $line = <$fh>) {
 	    }
 	}
     }
+    print "Cleaning up zombies\n";
+    my $kid;
+    do {
+	$kid = waitpid(-1, WNOHANG);
+    } while $kid > 0;
 }
 
 exit;
