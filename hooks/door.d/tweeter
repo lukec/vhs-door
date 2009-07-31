@@ -21,7 +21,7 @@ my %msg_map = (
 );
 
 if (my $msg = $msg_map{$arg}) {
-    my $image_url = take_picture();
+    my $image_url = take_picture() if $arg eq 'open';;
     send_tweet($msg, $image_url);
 }
 
