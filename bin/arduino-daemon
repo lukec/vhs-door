@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use AnyEvent::Twitter::Stream;
+use YAML qw/LoadFile/;
+use FindBin;
+use Fatal qw/open/;
+use Parallel::ForkManager;
+
+
+my $arduino_file    = '/dev/ttyUSB0';
+my $vhs_config_file = "$FindBin::Bin/../.vhs.yaml";
+my $VHS             = LoadFile($vhs_config_file);
+
+my $done = AnyEvent->condvar;
+my $forkmanager = Parallel::ForkManager->new(1);
+
+binmode STDOUT, ":utf8";
+my $streamer = AnyEvent::Twitter::Stream->new(
+    username => $VHS->{twitter_username},
+    password => $VHS->{twitter_password},
+    method   => 'follow',
+    follow   => '61112230',
+    on_tweet => sub {
+        my $tweet = shift;
+        print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
+    },
+    on_error => sub {
+        my $error = shift;
+        warn "ERROR: $error";
+        $done->send;
+    },
+    on_eof   => sub {
+        $done->send;
+    },
+);
+
+open(my $fh, $arduino_file);
+my $hdl = AnyEvent::Handle->new(
+    fh => $fh,
+    on_error => sub {
+        my ($hdl, $fatal, $msg) = @_;
+        warn "got error $msg\n";
+        $hdl->destroy;
+        $done->send;
+    },
+    on_read => sub {
+        my $handle = shift;
+        $handle->push_read(
+            line => sub {
+                my ($h, $line, $eol) = @_;
+                return unless length $line;
+
+                run_command_from_arduino( split m/\s+/, $line );
+            },
+        );
+    },
+);
+
+
+$done->recv;
+exit;
+
+
+sub run_command_from_arduino {
+    my $command = shift;
+    my @args    = @_;
+    my $now     = localtime;
+    print "$now:  Received command: $command args: ("
+            . join(', ', @args) . ")\n";
+
+    my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
+    my @scripts = glob("$script_dir/*");
+    for my $script (@scripts) {
+	next unless -x $script;
+
+        my $pid = $forkmanager->start and next;
+        print "Running $script\n";
+        system($script, @args);
+        $forkmanager->finish;
+    }
+}
