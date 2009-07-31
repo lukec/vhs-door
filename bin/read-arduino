@@ -10,27 +10,7 @@ my $arduino_file = '/dev/ttyUSB0';
 open(my $fh, $arduino_file);
 while (my $line = <$fh>) {
     chomp $line;
-    next if $line =~ m/^\s*$/;
-    my ($command, @args) = split m/\s+/, $line;
-    my $now = localtime;
-    print "$now:  Received command: $command args: (@args)\n";
-
-    my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
-    my @scripts = glob("$script_dir/*");
-    for my $script (@scripts) {
-	if (-x $script) {
-	    if (fork() == 0) {
-		print "Running $script\n";
-		system($script, @args);
-		exit;
-	    }
-	}
-    }
-    print "Cleaning up zombies\n";
-    my $kid;
-    do {
-	$kid = waitpid(-1, WNOHANG);
-    } while $kid > 0;
+    print "Received '$line'\n";
 }
 
 exit;
