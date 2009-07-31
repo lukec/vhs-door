@@ -14,6 +14,7 @@ my $VHS             = LoadFile($vhs_config_file);
 
 my $done = AnyEvent->condvar;
 my $forkmanager = Parallel::ForkManager->new(1);
+open(my $fh, $arduino_file);
 
 binmode STDOUT, ":utf8";
 my $streamer = AnyEvent::Twitter::Stream->new(
@@ -24,6 +25,10 @@ my $streamer = AnyEvent::Twitter::Stream->new(
     on_tweet => sub {
         my $tweet = shift;
         print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
+
+        # TODO: print the command to $fh (the arduino)
+        print $fh $tweet->{text}, "\n"
+            if $tweet->{user}{screen_name} ne 'vhs45w';
     },
     on_error => sub {
         my $error = shift;
@@ -35,7 +40,6 @@ my $streamer = AnyEvent::Twitter::Stream->new(
     },
 );
 
-open(my $fh, $arduino_file);
 my $hdl = AnyEvent::Handle->new(
     fh => $fh,
     on_error => sub {
