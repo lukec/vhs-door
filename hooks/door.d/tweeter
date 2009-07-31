@@ -40,6 +40,7 @@ sub send_tweet {
         password => $VHS->{twitter_password},
         traits => ['WrapError', 'API::REST'],
     );
+    return if $ENV{VHS_TEST};
     unless ( $nt->update($msg) ) {
         warn "Error sending tweet: " . $nt->http_message . "\n";
     }
