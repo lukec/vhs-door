@@ -95,7 +95,6 @@ my $stdin_hdl = AnyEvent::Handle->new(
         my ($hdl, $fatal, $msg) = @_;
         warn "STDIN: $msg\n";
         $hdl->destroy;
-        $done->send;
     },
     on_read => sub {
         my $handle = shift;
