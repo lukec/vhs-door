@@ -36,7 +36,7 @@
 #
 # $Id$
 
-TARGET = arduino
+TARGET = arduino_door_tweet
 INSTALL_DIR = /usr/local/share/arduino-0015/
 PORT = /dev/ttyUSB0
 UPLOAD_RATE = 19200
@@ -128,6 +128,9 @@ ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
 all: applet_files build sizeafter
 
 build: elf hex 
+
+$(TARGET).cpp: $(TARGET).pde
+	cp $(TARGET).pde $(TARGET).cpp
 
 applet_files: $(TARGET).cpp
 	# Here is the "preprocessing".
