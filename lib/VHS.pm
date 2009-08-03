@@ -7,6 +7,10 @@ use YAML qw/LoadFile/;
 
 has 'config' => (is => 'ro', lazy_build => 1);
 
+# USAGE: use VHS;  VHS->send_tweet($msg, $url);
+# $msg is your string
+# $url is optional URL that will be appended if there is enough room
+
 sub send_tweet {
     my $self = shift;
     my $msg  = shift;
