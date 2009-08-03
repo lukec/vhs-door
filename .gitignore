@@ -3,3 +3,4 @@
 *.swo
 *.cpp
 door.log
+arduino_door_tweet/applet/*

@@ -1,6 +1,6 @@
 /* Door Tweet
    gang programmed by VHS (c) copyright 2009.
-   goldfish vanjuggler tristan
+   goldfish vanjuggler tristan danv
    see LICENSE file for full details.
 */
 
@@ -9,10 +9,10 @@
 
 //  Incoming serial msg buffer
 #define BUFSIZE 256
-char buffer[256];
+char buffer[BUFSIZE];
+int buffer_idx = 0;
 
 int doorPinState;
-
 
 void setup() {
     Serial.begin( 9600 );
@@ -32,63 +32,69 @@ float readTemperature(int pin)
     int temp = analogRead(tempPin);
     float voltage = temp * 5.0f / 1024;
     float celsius = (voltage - 0.5f) * 100;
-    return temp;
+    return celsius;
 }
 
 ///  Check door status and update global doorPinState
-void checkDoor() {
+int checkDoor() {
     int newDoorPinState;
 
     newDoorPinState = digitalRead( doorPin );
     if( doorPinState != newDoorPinState ){
         doorPinState = newDoorPinState;
+        return 1;
     }
+    return 0;
 }
 
 ///  Check serial port for incoming messages and update global buffer
 int checkSerialCommand() {
     int pending = 0;
 
-    // Read an incoming command
-    if (Serial.available() > 0) {
-        int ibuf = 0;
-        int incoming = 0;
-
-        while (incoming != '\n' && ibuf < BUFSIZE)
-            buffer[ibuf++] = Serial.read();
-        
-        if (ibuf == BUFSIZE) {
-            buffer[BUFSIZE-1] = '\0';
-            Serial.print("error \"oversized message\" ");
-            Serial.println(buffer);
-        }
-        else {
-            pending = 1;
-        }
+    if (buffer_idx == 0) {
+        memset(buffer, 0, BUFSIZE);
     }
 
+    // Read an incoming command
+    // if bytes are available, addthemto the buffer
+    int incoming = Serial.available();
+    while (incoming-- > 0) {
+        char foo = Serial.read();
+
+        if (foo == '\n') {
+            pending = 1;
+            buffer[buffer_idx++] = 0;
+            buffer_idx = 0;
+            Serial.print("#RECV: ");
+            Serial.println( buffer );
+        }
+        else {
+            buffer[buffer_idx++] = foo;
+            buffer[buffer_idx] = 0;
+        }
+    }
 
     return pending;
 }
 
 void loop() {
-
-    checkDoor();
-    if( doorPinState == 0 ){
-        // door open
-        Serial.println( "door open" );
-        digitalWrite( 13, HIGH );
+    if (checkDoor()) {
+        if( doorPinState == 0 ){
+            // door open
+            Serial.println( "door open" );
+            digitalWrite( 13, HIGH );
+        }
+        else{
+            // door closed
+            Serial.println( "door closed" );
+            digitalWrite( 13, LOW );
+        }
     }
-    else{
-        // door closed
-        Serial.println( "door closed" );
-        digitalWrite( 13, LOW );
-    }
 
-#define INPUT(S) (strcmp((S), buffer) == 0)
+#define INPUT_BUFFER(S) (strcmp((S), buffer) == 0)
 
     if (checkSerialCommand()) {
-        if (INPUT("temperature")) {
+        if (INPUT_BUFFER("temperature")) {
             float temp = readTemperature(tempPin);
             Serial.print("temperature ");
             Serial.print(temp);
