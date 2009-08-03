@@ -32,7 +32,7 @@ sub send_tweet {
     unless ( $nt->update($msg) ) {
         warn "Error sending tweet: " . $nt->http_message . "\n";
     }
-    print "Sent tweet!\n";
+    print "Sent tweet: $msg\n";
 }
 
 

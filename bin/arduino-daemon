@@ -14,7 +14,6 @@ my $VHS             = LoadFile($vhs_config_file);
 my $done = AnyEvent->condvar;
 my $forkmanager = Parallel::ForkManager->new(1);
 open(my $arduino_rfh, $arduino_file);
-open(my $arduino_wfh, ">$arduino_file");
 
 binmode STDOUT, ":utf8";
 
@@ -23,11 +22,13 @@ my $to_arduino_event = sub {
     print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
 
     # Ignore our own tweets
-    next if $tweet->{user}{screen_name} eq 'vhs45w';
+    return if $tweet->{user}{screen_name} eq 'vhs45w';
 
     if ($tweet->{text} =~ m/\btemp(erature)?\b/) {
         print "  Sending temperature request\n";
-        print $arduino_wfh "T\n";
+        open(my $arduino_wfh, ">$arduino_file");
+        print $arduino_wfh "temperature\n";
+        close $arduino_wfh;
     }
 };
 my $streamer = AnyEvent::Twitter::Stream->new(
@@ -61,6 +62,10 @@ my $hdl = AnyEvent::Handle->new(
                 my ($h, $line, $eol) = @_;
                 return unless length $line;
 
+                if ($line =~ s/^#//) {
+                    warn "From arduino: $line\n";
+                    return;
+                }
                 run_command_from_arduino( split m/\s+/, $line );
             },
         );
@@ -82,6 +87,10 @@ my $stdin_hdl = AnyEvent::Handle->new(
                 my ($h, $line, $eol) = @_;
                 return unless length $line;
 
+                if ($line eq 'quit') {
+                    $done->send;
+                    return;
+                }
                 my $tweet = {
                     text => $line,
                     user => { screen_name => 'STDIN' },
@@ -91,7 +100,6 @@ my $stdin_hdl = AnyEvent::Handle->new(
         );
     },
 );
-
 
 $done->recv;
 exit;
@@ -105,6 +113,7 @@ sub run_command_from_arduino {
             . join(', ', @args) . ")\n";
 
     my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
+    return unless -d $script_dir;
     my @scripts = glob("$script_dir/*");
     for my $script (@scripts) {
 	next unless -x $script;

@@ -8,9 +8,8 @@ use VHS;
 my $arg = shift @ARGV;
 exit unless $arg;
 
-if ($arg =~ m/(\d+(?:\.\d+)?)C/) {
-    print "Read temperature: '$1'\n";
+if ($arg =~ m/(\d+(?:\.\d+)?C)/) {
 
     # Later:
-    # VHS->send_tweet("Temperature at VHS: $1");
+    VHS->send_tweet("Temperature at VHS: $1");
 }
