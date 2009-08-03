@@ -17,18 +17,24 @@ open(my $arduino_rfh, $arduino_file);
 
 binmode STDOUT, ":utf8";
 
+$SIG{INT} = sub { print "Exiting... \n" };
+
+my @temp_requests;
 my $to_arduino_event = sub {
     my $tweet = shift;
-    print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
+    my $tweeter = $tweet->{user}{screen_name};
+    print "TWITTER: $tweeter: $tweet->{text}\n";
 
     # Ignore our own tweets
-    return if $tweet->{user}{screen_name} eq 'vhs45w';
+    return if $tweeter eq 'vhs45w';
 
     if ($tweet->{text} =~ m/\btemp(erature)?\b/) {
         print "  Sending temperature request\n";
         open(my $arduino_wfh, ">$arduino_file");
         print $arduino_wfh "temperature\n";
         close $arduino_wfh;
+
+        push @temp_requests, $tweeter;
     }
 };
 my $streamer = AnyEvent::Twitter::Stream->new(
@@ -51,7 +57,7 @@ my $hdl = AnyEvent::Handle->new(
     fh => $arduino_rfh,
     on_error => sub {
         my ($hdl, $fatal, $msg) = @_;
-        warn "got error $msg\n";
+        warn "Arduino Read filehandle: $msg\n";
         $hdl->destroy;
         $done->send;
     },
@@ -66,7 +72,18 @@ my $hdl = AnyEvent::Handle->new(
                     warn "From arduino: $line\n";
                     return;
                 }
-                run_command_from_arduino( split m/\s+/, $line );
+                my @args = split m/\s+/, $line;
+
+                if ($line =~ m/temperature/ and scalar @temp_requests) {
+                    my $user = shift @temp_requests;
+                    if ($user eq 'STDIN') {
+                        print "$line\n";
+                        return;
+                    }
+                    
+                    push @args, $user;
+                }
+                run_command_from_arduino( @args );
             },
         );
     },
@@ -76,7 +93,7 @@ my $stdin_hdl = AnyEvent::Handle->new(
     fh => \*STDIN,
     on_error => sub {
         my ($hdl, $fatal, $msg) = @_;
-        warn "got error $msg\n";
+        warn "STDIN: $msg\n";
         $hdl->destroy;
         $done->send;
     },
