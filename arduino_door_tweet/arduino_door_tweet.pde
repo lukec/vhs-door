@@ -112,11 +112,11 @@ void loop() {
     if( checkBathroomDoor() ){
         if( bathroomDoorPinState == 0 ){
             // bathroom door open
-            Serial.println( "bathroom door open" );
+            Serial.println( "bathroom door closed" );
         }
         else{
             // bathroom door closed
-            Serial.println( "bathroom door closed" );
+            Serial.println( "bathroom door open" );
         }
     }
 
