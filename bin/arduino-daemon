@@ -127,6 +127,7 @@ sub run_command_from_arduino {
     my $now     = localtime;
     print "$now:  Received command: $command args: ("
             . join(', ', @args) . ")\n";
+    log_it("$command @args");
 
     my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
     return unless -d $script_dir;
@@ -139,4 +140,13 @@ sub run_command_from_arduino {
         system($script, @args);
         $forkmanager->finish;
     }
+}
+
+sub log_it {
+    my $log_string = shift;
+    my $log_file = "/tmp/vhs45w.log";
+    open(my $fh, ">>$log_file");
+    my $now = localtime;
+    print $fh "$now: $log_string\n";
+    close $fh;
 }
