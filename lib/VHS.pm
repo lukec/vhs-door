@@ -25,8 +25,8 @@ sub send_tweet {
         password => $self->config->{twitter_password},
         traits => ['WrapError', 'API::REST'],
     );
-    if ($ENV{VHS_TEST}) {
-        print "VHS_TEST=1 - would have sent tweet\n";
+    if ($self->config->{debug}) {
+        print "DEBUG - would have sent tweet\n";
         return;
     }
     unless ( $nt->update($msg) ) {
