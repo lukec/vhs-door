@@ -7,29 +7,35 @@ use FindBin;
 use Fatal qw/open/;
 use Parallel::ForkManager;
 
-
 my $arduino_file    = '/dev/ttyUSB0';
 my $vhs_config_file = "$FindBin::Bin/../.vhs.yaml";
 my $VHS             = LoadFile($vhs_config_file);
 
 my $done = AnyEvent->condvar;
 my $forkmanager = Parallel::ForkManager->new(1);
-open(my $fh, $arduino_file);
+open(my $arduino_rfh, $arduino_file);
+open(my $arduino_wfh, ">$arduino_file");
 
 binmode STDOUT, ":utf8";
+
+my $to_arduino_event = sub {
+    my $tweet = shift;
+    print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
+
+    # Ignore our own tweets
+    next if $tweet->{user}{screen_name} eq 'vhs45w';
+
+    if ($tweet->{text} =~ m/\btemp(erature)?\b/) {
+        print "  Sending temperature request\n";
+        print $arduino_wfh "T\n";
+    }
+};
 my $streamer = AnyEvent::Twitter::Stream->new(
     username => $VHS->{twitter_username},
     password => $VHS->{twitter_password},
     method   => 'follow',
     follow   => '61112230',
-    on_tweet => sub {
-        my $tweet = shift;
-        print "TWITTER: $tweet->{user}{screen_name}: $tweet->{text}\n";
-
-        # TODO: print the command to $fh (the arduino)
-        print $fh $tweet->{text}, "\n"
-            if $tweet->{user}{screen_name} ne 'vhs45w';
-    },
+    on_tweet => $to_arduino_event,
     on_error => sub {
         my $error = shift;
         warn "ERROR: $error";
@@ -41,7 +47,7 @@ my $streamer = AnyEvent::Twitter::Stream->new(
 );
 
 my $hdl = AnyEvent::Handle->new(
-    fh => $fh,
+    fh => $arduino_rfh,
     on_error => sub {
         my ($hdl, $fatal, $msg) = @_;
         warn "got error $msg\n";
@@ -56,6 +62,31 @@ my $hdl = AnyEvent::Handle->new(
                 return unless length $line;
 
                 run_command_from_arduino( split m/\s+/, $line );
+            },
+        );
+    },
+);
+
+my $stdin_hdl = AnyEvent::Handle->new(
+    fh => \*STDIN,
+    on_error => sub {
+        my ($hdl, $fatal, $msg) = @_;
+        warn "got error $msg\n";
+        $hdl->destroy;
+        $done->send;
+    },
+    on_read => sub {
+        my $handle = shift;
+        $handle->push_read(
+            line => sub {
+                my ($h, $line, $eol) = @_;
+                return unless length $line;
+
+                my $tweet = {
+                    text => $line,
+                    user => { screen_name => 'STDIN' },
+                };
+                $to_arduino_event->($tweet);
             },
         );
     },
