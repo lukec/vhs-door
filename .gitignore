@@ -1,2 +1,5 @@
 .*.yaml
+*.swp
+*.swo
+*.cpp
 door.log
