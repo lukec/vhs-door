@@ -49,7 +49,7 @@ sub take_picture {
     my $short_file = "$pic_base/$short_name";
     rename $filename => $short_file;
 
-    my $pic_uri = "$pic_base/$short_name";
+    my $pic_uri = $self->config->{picture_uri_base} . "/$short_name";
     print "\nSaved $short_file as $pic_uri\n";
     return $pic_uri;
 }
