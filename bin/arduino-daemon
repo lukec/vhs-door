@@ -137,6 +137,7 @@ sub run_command_from_arduino {
 
         my $pid = $forkmanager->start and next;
         print "Running $script\n";
+        local $ENV{PERL5LIB} = "$FindBin::Bin/../lib";
         system($script, @args);
         $forkmanager->finish;
     }
