@@ -4,7 +4,7 @@ use warnings;
 use AnyEvent::Twitter::Stream;
 use YAML qw/LoadFile/;
 use FindBin;
-use Fatal qw/open/;
+use Fatal qw/open close/;
 use Parallel::ForkManager;
 
 my $arduino_file    = '/dev/ttyUSB0';
@@ -144,7 +144,7 @@ sub run_command_from_arduino {
 
 sub log_it {
     my $log_string = shift;
-    my $log_file = "/tmp/vhs45w.log";
+    my $log_file = "/var/log/vhs.log";
     open(my $fh, ">>$log_file");
     my $now = localtime;
     print $fh "$now: $log_string\n";
