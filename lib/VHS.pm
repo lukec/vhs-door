@@ -2,8 +2,11 @@ package VHS;
 use MooseX::Singleton;
 use FindBin;
 use Net::Twitter;
-use namespace::clean -except => 'meta';
 use YAML qw/LoadFile/;
+use Fatal qw/rename/;
+use Digest::SHA1 qw/sha1_hex/;
+use WWW::Twitpic;
+use namespace::clean -except => 'meta';
 
 has 'config' => (is => 'ro', lazy_build => 1);
 
@@ -35,6 +38,21 @@ sub send_tweet {
     print "Sent tweet: $msg\n";
 }
 
+sub take_picture {
+    my $self       = shift;
+    my $now_hash   = sha1_hex(scalar localtime);
+    my $short_hash = substr $now_hash, 0, 6;
+    my $pic_base   = $self->config->{picture_base};
+    my $filename   = "$pic_base/$short_hash.jpeg";
+    system("streamer -c /dev/video0 -b 16 -o $filename");
+    (my $short_name = $filename) =~ s#.+/(.+).jpeg#$1.jpg#;
+    my $short_file = "$pic_base/$short_name";
+    rename $filename => $short_file;
+
+    my $pic_uri = "$pic_base/$short_name";
+    print "\nSaved $short_file as $pic_uri\n";
+    return $pic_uri;
+}
 
 sub _build_config {
     my $vhs_config_file = "$FindBin::Bin/../../.vhs.yaml";
