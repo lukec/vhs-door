@@ -29,7 +29,7 @@ sub send_tweet {
         traits => ['WrapError', 'API::REST'],
     );
     if ($self->config->{debug}) {
-        print "DEBUG - would have sent tweet\n";
+        print "DEBUG: tweet: '$msg'\n";
         return;
     }
     unless ( $nt->update($msg) ) {
