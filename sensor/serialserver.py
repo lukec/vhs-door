@@ -28,7 +28,11 @@ import traceback
 
 SERVER_HOST_PORT = 'localhost', 9994
 
-SERIAL_PORT = 'COM12' if os.name is 'nt' else '/dev/ttyUSB0'
+SERIAL_PORT, LOG_FILENAME = {
+    'nt': ('COM12', 'serialserver.log'),
+}.get(os.name, ('/dev/ttyUSB0', '/var/log/vhs-serialserver.log'))
+
+logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 # socket read timeout in seconds
 TIMEOUT  = 0.01
@@ -51,7 +55,7 @@ class TCPHandler(SocketServer.BaseRequestHandler):
         self.request.settimeout(TIMEOUT)
 
     def handle(self):
-        print 'Opened TCP client connection %s' % str(self.client_address)
+        logging.info('Opened TCP client connection %s' % str(self.client_address))
 
         while True:
             try:
@@ -61,19 +65,19 @@ class TCPHandler(SocketServer.BaseRequestHandler):
                     message = self.data.strip()
                     if not message: continue
 
-                    print 'received message', message, 'length %d' % len(message)
+                    logging.debug('received message "%s" length %d' % (message, len(message)))
                     # send to serial port
                     self.seriald.outgoing((self.client_id, message))
                 else:
                     # stream closed
                     self.request.close()
-                    print 'Closed TCP client connection #%d' % self.client_id
+                    logging.info('Closed TCP client connection #%d' % self.client_id)
                     break
             except socket.timeout:
                 # check if there are any incoming messages for this client
                 messages = self.seriald.incoming(self.client_id, pop=True)
                 for (id, msg) in messages:
-                    print 'sending message %s to %d' % (msg.strip(), self.client_id)
+                    logging.debug('sending message %s to %d' % (msg.strip(), self.client_id))
                     self.request.send(msg)
     
     def finish(self):
@@ -99,7 +103,7 @@ class SerialDaemon(object):
             self.clients.add(client_id)
 
     def unregister_client(self, client_id):
-        print 'unregistering client ', client_id
+        logging.debug('unregistering client %s' % client_id)
         with self.client_lock:
             self.clients.remove(client_id)
 
@@ -127,7 +131,7 @@ class SerialDaemon(object):
         with self.message_lock:
             while len(self.outgoing_serial):
                 (id, msg) = self.outgoing_serial.pop(0)
-                print 'writing "%s" to serial port' % msg
+                logging.debug('writing "%s" to serial port' % msg)
                 self.ser.write(msg + '\n')
 
                 # wait till we get a response to our query
@@ -138,9 +142,10 @@ class SerialDaemon(object):
                     while attempts:
                         response = self.ser.readline()
                         if valid_message(response):
-                            print 'response "%s"\ncommand "%s"' % (response.strip(), command)
+                            logging.debug('response "%s"' % response.strip())
+                            logging.debug(' command "%s"' % command)
                             if response and command == response.split()[0]:
-                                print 'matched response %s' % response.strip()
+                                logging.debug('matched response %s' % response.strip())
                                 self.incoming_serial.append((id, response))
                                 break
                             else:
@@ -149,6 +154,7 @@ class SerialDaemon(object):
                         attempts -= 1
                     else:
                         # send out a timeout message
+                        logging.warning('timeout on message "%s"' % msg)
                         self.incoming_serial.append((id, '!timeout\r\n'))
 
     def outgoing(self, (client_id, message)):
@@ -193,16 +199,16 @@ if __name__ == '__main__':
         server_thread.setDaemon(True)
         server_thread.start()
 
-        print 'Serial server initialized'
-        print '  -- listening on serial port %s and %s\n' % (
-                SERIAL_PORT, '%s:%d' % (SERVER_HOST_PORT))
+        logging.info('Serial server initialized')
+        logging.info('  -- listening on serial port %s and %s\n' % (
+                SERIAL_PORT, '%s:%d' % (SERVER_HOST_PORT)))
         while True:
             # poll serial port
             SERIAL_DAEMON.update()
 
     except Exception, e:
-        print 'serialserver exception:', e 
-        traceback.print_exc()
+        logging.critical('serialserver exception:', e)
+        logging.critical(traceback.format_exc())
     finally:
         ser.close()
 

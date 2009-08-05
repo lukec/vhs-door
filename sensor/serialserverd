@@ -34,11 +34,10 @@ case "$1" in
 	;;
   restart)
 	echo -n "Restarting $DESC: "
-	start-stop-daemon --stop --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON || true
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid || true
 	sleep 1
-	start-stop-daemon --start --quiet -m --pidfile -b -c danv \
-		/var/run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS || true
+	start-stop-daemon --start --quiet -m --pidfile /var/run/$NAME.pid -b -c danv \
+		--exec $DAEMON -- $DAEMON_OPTS || true
 	echo "$NAME."
 	;;
   status)
