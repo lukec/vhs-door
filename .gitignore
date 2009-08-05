@@ -2,5 +2,6 @@
 *.swp
 *.swo
 *.cpp
+*.pyc
 door.log
 arduino_door_tweet/applet/*
