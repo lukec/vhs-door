@@ -1,15 +1,14 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use AnyEvent::Twitter::Stream;
-use YAML qw/LoadFile/;
 use FindBin;
+use lib "$FindBin::Bin/../lib";
+use VHS;
+use AnyEvent::Twitter::Stream;
 use Fatal qw/open close/;
 use Parallel::ForkManager;
 
 my $arduino_file    = '/dev/ttyUSB0';
-my $vhs_config_file = "$FindBin::Bin/../.vhs.yaml";
-my $VHS             = LoadFile($vhs_config_file);
 
 my $done = AnyEvent->condvar;
 my $forkmanager = Parallel::ForkManager->new(1);
@@ -38,8 +37,8 @@ my $to_arduino_event = sub {
     }
 };
 my $streamer = AnyEvent::Twitter::Stream->new(
-    username => $VHS->{twitter_username},
-    password => $VHS->{twitter_password},
+    username => VHS->config->{twitter_username},
+    password => VHS->config->{twitter_password},
     method   => 'follow',
     follow   => '61112230',
     on_tweet => $to_arduino_event,
