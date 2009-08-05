@@ -7,12 +7,16 @@ DAEMON=$(bin/arduino-daemon)
 LIBS=$(wildcard lib/*)
 
 $(ARDUINO_HEX): $(ARDUINO_SRC)
+	sudo pkill arduino-daemon
 	cd $(ARDUINO_DIR) && make && make upload
 
-install: $(ARDUINO_HEX) $(HOOKS_SRC) $(DAEMON) $(LIBS)
+install: $(HOOKS_SRC) $(DAEMON) $(LIBS)
 	cp -R hooks $(INSTALL_DIR)
 	cp -R bin $(INSTALL_DIR)
 	cp -R lib $(INSTALL_DIR)
+
+release: $(ARDUINO_HEX)
+	make install
 	$(INSTALL_DIR)/bin/restart-daemon
 
 clean:
