@@ -56,6 +56,9 @@ sub take_picture {
 
 sub _build_config {
     my $vhs_config_file = "$FindBin::Bin/../../.vhs.yaml";
+    unless (-e $vhs_config_file) {
+        $vhs_config_file = '/etc/vhs.yaml';
+    }
     return LoadFile($vhs_config_file);
 }
 
