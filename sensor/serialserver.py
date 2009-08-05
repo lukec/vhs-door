@@ -14,7 +14,6 @@ the serial port is also polled periodically and any other messages are broadcast
   to all open connections
 
 future improvements:
-    - convert print's to logging.*
     - subclass SocketServer.TCPServer constructor to eliminate global SERIAL_DAEMON
     - switch from Lock protected lists to python's synchronized Queue class 
     - better granularity of existing locks
@@ -22,17 +21,18 @@ future improvements:
 
 from __future__ import with_statement
 
-import serial
-import SocketServer, threading, socket, re, os, logging
+import serial, yaml
+import SocketServer, threading, socket, re, os, logging, time
 import traceback
 
 SERVER_HOST_PORT = 'localhost', 9994
 
-SERIAL_PORT, LOG_FILENAME = {
-    'nt': ('COM12', 'serialserver.log'),
-}.get(os.name, ('/dev/ttyUSB0', '/var/log/vhs-serialserver.log'))
+SERIAL_PORT, LOG_FILENAME, YAML_CONFIG = {
+    'nt': ('COM12', 'serialserver.log', 'vhs.yaml'),
+}.get(os.name, ('/dev/ttyUSB0', '/var/log/vhs-serialserver.log', '/etc/vhs.yaml'))
 
-logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
+config = yaml.load(file(YAML_CONFIG))
+SENSOR_HOOKS_DIR = config.get('sensor_hooks_dir')
 
 # socket read timeout in seconds
 TIMEOUT  = 0.01
@@ -40,6 +40,8 @@ TIMEOUT  = 0.01
 SERIAL_TIMEOUT = 0.05
 
 global SERIAL_DAEMON
+
+logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
 
 class TCPHandler(SocketServer.BaseRequestHandler):
     def setup(self):
@@ -186,6 +188,63 @@ class SerialDaemon(object):
 
         return messages
 
+class RelayScript(object):
+    """
+    RelayScript opens a server port and listens for commands from the arduino,
+    then triggers matching scripts in SENSOR_HOOKS_DIR
+    """
+
+    def __init__(self):
+        self.connect()
+        logging.debug('Relay will trigger scripts from %s' % SENSOR_HOOKS_DIR)
+
+    def loop(self):
+        retry = False
+
+        def _loop():
+            while True:
+                try:
+                    data = self.socket.recv(1024)
+                    if data:
+                        self.run_command_from_arduino(data)
+                        logging.debug('Received data "%s"' % data.strip())
+                    else:
+                        logging.info('Client connection terminated by server')
+                        retry = True
+                        break
+                except socket.timeout:
+                    pass
+
+        while True:
+            _loop()
+            if retry:
+                logging.info('Relay client waiting 10s before trying to reconnect')
+                time.sleep(10)
+                self.connect()
+            else:
+                break
+
+    def connect(self):
+        # connect to socket
+        self.socket = s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(TIMEOUT)
+        s.connect(SERVER_HOST_PORT)
+
+    def run_command_from_arduino(self, data):
+        def trigger(arg, dirname, names):
+            for filename in names:
+                script_path = os.path.join(dirname, filename)
+                if not os.path.islink(script_path) and os.path.isfile(script_path):
+                    full_path = '%s %s' % (script_path, arg)
+                    logging.debug('launching "%s"' % full_path)
+                    os.system(full_path)
+
+        command, sep, arg = data.strip().partition(' ')
+        hookpath = SENSOR_HOOKS_DIR
+        script_dir = os.path.join(hookpath, '%s.d' % command)
+        if os.path.exists(script_dir):
+            os.path.walk(script_dir, trigger, arg)
+
 if __name__ == '__main__':
     ser = serial.Serial(SERIAL_PORT, 9600, timeout=SERIAL_TIMEOUT)
 
@@ -198,6 +257,12 @@ if __name__ == '__main__':
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.setDaemon(True)
         server_thread.start()
+
+        # start up relay client thread
+        relay = RelayScript()
+        relay_thread = threading.Thread(target=relay.loop)
+        relay_thread.setDaemon(True)
+        relay_thread.start()
 
         logging.info('Serial server initialized')
         logging.info('  -- listening on serial port %s and %s\n' % (

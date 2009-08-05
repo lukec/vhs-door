@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import web, serial
-import os, re, socket, datetime, sha, httplib
+import os, re, socket, datetime, hashlib, httplib
 
 import yaml
 import xml.dom.minidom
@@ -83,7 +83,7 @@ def take_door_photo():
 
     # based on lukec's code in VHS.pm
     config = yaml.load(file('/etc/vhs.yaml'))
-    short_hash = sha.sha(str(datetime.datetime.now())).hexdigest()[0:6]
+    short_hash = hashlib.sha256(str(datetime.datetime.now())).hexdigest()[0:6]
     pic_base = config.get('picture_base')
     if pic_base:
         filename = os.path.join(pic_base, '%s.jpeg' % short_hash)
