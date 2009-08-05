@@ -7,7 +7,7 @@
 #define doorPin (4)
 #define bathroomDoorPin (7)
 #define tempPin (0)
-#define buzzerPin (8)
+#define buzzerHighPin (11)
 #define INPUT_BUFFER(S) (strcmp((S), buffer) == 0)
 
 //  Incoming serial msg buffer
@@ -42,7 +42,7 @@ void setup() {
     digitalWrite( bathroomDoorPin, HIGH );
 
     //  reset piezo
-    digitalWrite( buzzerPin, LOW);
+    digitalWrite( buzzerHighPin, LOW);
 
     doorPinState = digitalRead( doorPin );
     bathroomDoorPinState = digitalRead( bathroomDoorPin );
@@ -78,7 +78,7 @@ int checkDoor() {
 int checkBathroomDoor() {
     int newBathroomDoorPinState;
 
-    newBathroomDoorPinState = digitalRead( bathroomDoorPin );
+    newBathroomDoorPinState = !digitalRead( bathroomDoorPin );
     if( bathroomDoorPinState != newBathroomDoorPinState ){
         bathroomDoorPinState = newBathroomDoorPinState;
         return 1;
@@ -150,15 +150,24 @@ int buzz(int note, long duration)
         int period = NOTES[note] / 2;
         long elapsed_time = 0;
 
-        while (elapsed_time < duration) {
-            // square wave
-            digitalWrite(buzzerPin, HIGH);
-            delayMicroseconds(period);
-            digitalWrite(buzzerPin, LOW);
-            delayMicroseconds(period);
-            elapsed_time += period;
-        }
+        // while (elapsed_time < duration) {
+        // square wave
+        // digitalWrite(buzzerHighPin, HIGH);
+        // delayMicroseconds(period);
+        // digitalWrite(buzzerHighPin, LOW);
+        // delayMicroseconds(period);
+        // elapsed_time += period;
+        
+        // XXX the above code doesn't work yet, so here's a bodgy fallback
+        analogWrite(11, 128);
+        delay(1000);
+        analogWrite(11, 0);
+
+        // }
         return 1;
+    }
+    else {
+        Serial.println("buzz note out of range");
     }
     // invalid note, return fail
     return 0;
@@ -193,6 +202,7 @@ void loop() {
         }
         else if (INPUT_BUFFER("buzz")) {
             buzz(0, 2e6);
+            Serial.println("buzz played");
         }
     }
 }
