@@ -8,7 +8,7 @@ LIBS=$(wildcard lib/*)
 WWW_ROOT=/var/www
 
 $(ARDUINO_HEX): $(ARDUINO_SRC)
-	sudo pkill arduino-daemon
+	make stop
 	cd $(ARDUINO_DIR) && make && make upload
 
 install: $(HOOKS_SRC) $(DAEMON) $(LIBS)
@@ -23,9 +23,19 @@ install: $(HOOKS_SRC) $(DAEMON) $(LIBS)
 	install -o nobody -g dialout -p -m 755 sensor/serialserver.py $(INSTALL_DIR)bin
 	install sensor/serialserverd /etc/init.d
 
+restart:
+	make stop
+	make start
+
+stop:
+	pkill arduino-daemon || true
+
+start:
+	$(INSTALL_DIR)/bin/arduino-daemon
+
 release: $(ARDUINO_HEX)
 	make install
-	$(INSTALL_DIR)/bin/restart-daemon
+	make restart
 
 clean:
 	cd $(ARDUINO_DIR) && make clean
