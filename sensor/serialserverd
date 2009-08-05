@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# init.d script for serial server on democracy
+# XXX hacked to start the server as user 'danv' but any member of dialout will do
+# relevant start-stop-daemon args are:
+#  -m : make a pidfile
+#  --pidfile : name of pidfile
+#  -b : run in background (detach)
+#  -c : set uid of process
+# when stopping match only on pid (for now)
+
+PATH=/usr/local/vhs/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/local/vhs/bin/serialserver.py
+NAME=serialserverd
+DESC=serialserverd
+
+test -x $DAEMON || exit 0
+
+set -e
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet -m --pidfile /var/run/$NAME.pid -b -c danv \
+		--exec $DAEMON -- $DAEMON_OPTS || true
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid || true
+	echo "$NAME."
+	;;
+  restart)
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --stop --quiet --pidfile \
+		/var/run/$NAME.pid --exec $DAEMON || true
+	sleep 1
+	start-stop-daemon --start --quiet -m --pidfile -b -c danv \
+		/var/run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS || true
+	echo "$NAME."
+	;;
+  status)
+      status_of_proc -p /var/run/$NAME.pid "$DAEMON" vhs-door && exit 0 || exit $?
+      ;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
