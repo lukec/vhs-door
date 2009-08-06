@@ -55,7 +55,7 @@ def restricted(view):
     def _decorator(*args, **kw):
         params = web.input(key=None)
         if params.key != SECRET_KEY:
-            return 'This URL is restricted to VHS members: info@vancouver.hackspace.ca'
+            return '!restricted URL - for VHS members only'
 
         return view(*args, **kw)
     return _decorator
