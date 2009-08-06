@@ -8,36 +8,45 @@ import xml.dom.minidom
 
 import decree          # http://bitbucket.org/dantakk/decree
 
+from decorators import restricted, throttled
+
+TIMEOUT = 30
+
 DOC = """\
 sensor.hackspace.ca - a <a href="http://vancouver.hackspace.ca">VHS</a> project
 
-<a href="/door/state">/door/state</a>
-   text/plain response: open|closed (entrance door)
+    <a href="/door/state">/door/state</a>
+       text/plain response: open|closed (entrance door)
+    
+    <a href="/door/photo">/door/photo</a>
+       image/jpeg response: a photo of the entrance taken in the last %ds
+    
+    <a href="/bathroom/door/state">/bathroom/door/state</a>
+       text/plain response: open|closed (bathroom door)
+    
+    <a href="/temperature/celsius">/temperature/celsius</a>
+       text/plain response: (\d+(\.\d*)?) (space temperature in celsius)
+    
+    <a href="/temperature/fahrenheit">/temperature/fahrenheit</a>
+       text/plain response: (\d+\.(\d*)?) (space temperature in fahrenheit)
+    
+    <a href="/feed/eeml">/feed/eeml</a>
+       text/xml response: an <a href="http://www.eeml.org">EEML</a> XML feed for use with <a href="http://www.pachube.com">pachube</a>
+    
+Restricted urls require VHS membership
 
-<a href="/door/photo">/door/photo</a>
-   image/* response
+    <a href="/buzz">/buzz</a>
+       text/plain response: (raw buzzer response)
 
-<a href="/bathroom/door/state">/bathroom/door/state</a>
-   text/plain response: open|closed (bathroom door)
-
-<a href="/temperature/celsius">/temperature/celsius</a>
-   text/plain response: (\d+(\.\d*)?) (space temperature in celsius)
-
-<a href="/temperature/fahrenheit">/temperature/fahrenheit</a>
-   text/plain response: (\d+\.(\d*)?) (space temperature in fahrenheit)
-
-<a href="/buzz">/buzz</a>
-   text/plain response: (raw buzzer response)
-
-<a href="/feed/eeml">/feed/eeml</a>
-   text/xml response: an <a href="http://www.eeml.org">EEML</a> XML feed for use with <a href="http://www.pachube.com">pachube</a>
-"""
+    <a href="/door/photo/url">/door/photo/url</a>
+       image/jpeg response: redirects to URL of a new photo of the entrance
+""" % TIMEOUT
 
 SERIAL_HOST_PORT = ('localhost', 9994)
 
 # route urls to handler classes
 urls = (
-    r'/door/(state|photo)/?', 'Door',
+    r'/door/(state|photo(?:\/url)?)/?', 'Door',
     r'/bathroom/door/(state)/?', 'BathroomDoor',
     r'/temperature/(celsius|fahrenheit)/?', 'Temperature',
     r'/buzz/?', 'Buzz',
@@ -45,20 +54,6 @@ urls = (
     r'/feed/(pusheeml)/?', 'Feed',
     r'.*', 'Static',
 )
-
-# restricted URL's require this key to be passed in as a GET or
-# POST param.
-SECRET_KEY='7787855982'
-
-# use the @restricted decorator to protect sensitive URLs
-def restricted(view):
-    def _decorator(*args, **kw):
-        params = web.input(key=None)
-        if params.key != SECRET_KEY:
-            return '!restricted URL - for VHS members only'
-
-        return view(*args, **kw)
-    return _decorator
 
 app = web.application(urls, globals())
 
@@ -87,7 +82,7 @@ def take_door_photo():
     pic_base = config.get('picture_base')
     if pic_base:
         filename = os.path.join(pic_base, '%s.jpeg' % short_hash)
-        os.system('streamer -c /dev/video0 -b 16 -o %s' % filename)
+        os.system('streamer -c /dev/video0 -b 16 -o %s >/dev/null 2>&1' % filename)
         short_file = os.path.splitext(filename)[0] + '.jpg'
         os.rename(filename, short_file)
         pic_uri_base = config.get('picture_uri_base') 
@@ -102,7 +97,6 @@ class Door(object):
         super(Door, self).__init__(*args, **kw)
         self.doorname = self.response_cmd = 'door'
         
-    @property
     def door_state(self):
         response = serial_query('%s state' % self.doorname).strip()
         if response == '%s closed' % self.response_cmd:
@@ -112,15 +106,31 @@ class Door(object):
         else:
             return '!unknown response <%s>' % response
 
+    @throttled(timeout=TIMEOUT)
+    def door_photo(self):
+        door_photo_uri, door_photo_path = take_door_photo()
+        if door_photo_path:
+            web.header('Content-Type', 'image/jpeg')
+            web.header('X-Vhs-URL', str(door_photo_uri))
+            return(file(door_photo_path).read())
+
+        return '!door photo not taken - check config'
+
+    @restricted
+    def door_photo_url(self):
+        door_photo_uri, door_photo_path = take_door_photo()
+        if door_photo_uri:
+            raise web.seeother(door_photo_uri)
+
+        return '!door photo not taken - check config'
+
     def GET(self, query):
         if query == 'state':
-            return self.door_state
+            return self.door_state()
         elif query == 'photo':
-            door_photo_uri, door_photo_path = take_door_photo()
-            if door_photo_uri:
-                raise web.seeother(door_photo_uri)
-            return '!door photo not taken - check config'
-            # return str(door_photo_uri)
+            return self.door_photo()
+        elif query == 'photo/url':
+            return self.door_photo_url()
 
 class BathroomDoor(Door):
     def __init__(self, *args, **kw):

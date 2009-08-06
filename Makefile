@@ -18,6 +18,7 @@ install: $(HOOKS_SRC) $(DAEMON) $(LIBS)
 	# setup sensor web server
 	install -o www-data -g www-data -m 755 -d $(WWW_ROOT)/sensor
 	install -o www-data -g www-data -p -m 755 sensor/www/sensor.py $(WWW_ROOT)/sensor
+	install -o www-data -g www-data -p -m 755 sensor/www/decorators.py $(WWW_ROOT)/sensor
 	# update serial server and startup script
 	install -o nobody -g dialout -p -m 755 sensor/serialserver.py $(INSTALL_DIR)bin
 	install sensor/serialserverd /etc/init.d
