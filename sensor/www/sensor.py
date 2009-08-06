@@ -46,6 +46,20 @@ urls = (
     r'.*', 'Static',
 )
 
+# restricted URL's require this key to be passed in as a GET or
+# POST param.
+SECRET_KEY='7787855982'
+
+# use the @restricted decorator to protect sensitive URLs
+def restricted(view):
+    def _decorator(*args, **kw):
+        params = web.input(key=None)
+        if params.key != SECRET_KEY:
+            return 'This URL is restricted to VHS members: info@vancouver.hackspace.ca'
+
+        return view(*args, **kw)
+    return _decorator
+
 app = web.application(urls, globals())
 
 def serial_query(query):
@@ -150,6 +164,7 @@ class Static:
 """ % DOC
     
 class Buzz:
+    @restricted
     def GET(self):
         return serial_query('buzz');
 
