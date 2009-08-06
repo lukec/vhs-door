@@ -195,7 +195,6 @@ class RelayScript(object):
     """
 
     def __init__(self):
-        self.connect()
         logging.debug('Relay will trigger scripts from %s' % SENSOR_HOOKS_DIR)
 
     def loop(self):
@@ -216,11 +215,11 @@ class RelayScript(object):
                     pass
 
         while True:
+            self.connect()
             _loop()
             if retry:
                 logging.info('Relay client waiting 10s before trying to reconnect')
                 time.sleep(10)
-                self.connect()
             else:
                 break
 
