@@ -65,6 +65,8 @@ def get_celsius():
         return None
 
 def take_door_photo():
+    """Take a photo of the front door and return a URL and file path"""
+
     # based on lukec's code in VHS.pm
     config = yaml.load(file('/etc/vhs.yaml'))
     short_hash = sha.sha(str(datetime.datetime.now())).hexdigest()[0:6]
@@ -76,7 +78,8 @@ def take_door_photo():
         os.rename(filename, short_file)
         pic_uri_base = config.get('picture_uri_base') 
         if pic_uri_base and os.path.exists(short_file):
-            return '%s/%s' % (pic_uri_base, os.path.basename(short_file))
+            pic_uri = '%s/%s' % (pic_uri_base, os.path.basename(short_file))
+            return (pic_uri, short_file)
 
     return None
 
@@ -99,11 +102,11 @@ class Door(object):
         if query == 'state':
             return self.door_state
         elif query == 'photo':
-            door_photo_uri = take_door_photo()
-            # if door_photo_uri:
-            #     raise web.seeother(door_photo_uri)
-            # return '!door photo not taken - check config'
-            return str(door_photo_uri)
+            door_photo_uri, door_photo_path = take_door_photo()
+            if door_photo_uri:
+                raise web.seeother(door_photo_uri)
+            return '!door photo not taken - check config'
+            # return str(door_photo_uri)
 
 class BathroomDoor(Door):
     def __init__(self, *args, **kw):
