@@ -1,0 +1,7 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use X10::Home;
+
+my $x10 = X10::Home->new();
+$x10->send(@ARGV);
