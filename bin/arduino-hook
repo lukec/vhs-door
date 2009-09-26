@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use IO::Socket::INET;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use VHS;
+
+my $sock = IO::Socket::INET->new(
+    PeerAddr => 'localhost',
+    PeerPort => '9994',
+    Proto    => 'tcp'
+);
+
+while (my $line = <$sock>) {
+    chomp $line;
+    VHS->run_command_from_arduino( split /\s+/, $line );
+}
+
+exit;
+
+

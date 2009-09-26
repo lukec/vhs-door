@@ -6,6 +6,7 @@ use YAML qw/LoadFile/;
 use Fatal qw/rename/;
 use Digest::SHA1 qw/sha1_hex/;
 use WWW::Twitpic;
+use Parallel::ForkManager;
 use namespace::clean -except => 'meta';
 
 has 'config' => (is => 'ro', lazy_build => 1);
@@ -52,6 +53,41 @@ sub take_picture {
     my $pic_uri = $self->config->{picture_uri_base} . "/$short_name";
     print "\nSaved $short_file as $pic_uri\n";
     return $pic_uri;
+}
+
+sub run_command_from_arduino {
+    my $self    = shift;
+    my $command = shift;
+    my @args    = @_;
+    my $now     = localtime;
+
+    print "$now:  Received command: '$command' args: ("
+            . join(', ', @args) . ")\n";
+    log_it("$command @args");
+
+    my $forkmanager = Parallel::ForkManager->new(1);
+    my $script_dir = "$FindBin::Bin/../hooks/${command}.d";
+    return unless -d $script_dir;
+    my @scripts = glob("$script_dir/*");
+    for my $script (@scripts) {
+	next unless -x $script;
+
+        my $pid = $forkmanager->start and next;
+        print "Running $script\n";
+        local $ENV{PERL5LIB} = "$FindBin::Bin/../lib";
+        system($script, @args);
+        $forkmanager->finish;
+    }
+}
+
+
+sub log_it {
+    my $log_string = shift;
+    my $log_file = "/var/log/vhs.log";
+    open(my $fh, ">>$log_file");
+    my $now = localtime;
+    print $fh "$now: $log_string\n";
+    close $fh;
 }
 
 sub _build_config {

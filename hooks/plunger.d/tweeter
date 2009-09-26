@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use VHS;
+
+my $arg = shift @ARGV;
+my $what = shift;
+exit unless $arg;
+
+exit unless $arg eq 'down';
+
+VHS->send_tweet("My toilet flushed.");
