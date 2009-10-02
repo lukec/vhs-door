@@ -1,0 +1,3 @@
+#!/bin/bash
+
+perl -le 'print time' > status.d/last-plunge

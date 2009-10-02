@@ -1,0 +1,12 @@
+#!/bin/bash
+
+echo "bathroom recorder: $1 $2"
+if [ "$1" == "door" ]; then
+    if [ "$2" == "open" ]; then
+        perl -le 'print time' > status.d/last-open
+    elif [ "$2" == "closed" ]; then
+        perl -le 'print time' > status.d/last-close
+    fi
+fi
+
+
