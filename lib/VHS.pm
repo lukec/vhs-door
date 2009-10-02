@@ -1,13 +1,16 @@
 package VHS;
+
+# Hey Fuckers
+#
+# This is the VHS perl module.  It contains some common code that may be
+# useful to you
+#
 use MooseX::Singleton;
-use FindBin;
 use Net::Twitter;
 use YAML qw/LoadFile/;
 use Fatal qw/rename/;
 use Digest::SHA1 qw/sha1_hex/;
-use WWW::Twitpic;
 use Parallel::ForkManager;
-use namespace::clean -except => 'meta';
 
 has 'config' => (is => 'ro', lazy_build => 1);
 
@@ -97,8 +100,6 @@ sub _build_config {
     }
     return LoadFile($vhs_config_file);
 }
-
-
 
 __PACKAGE__->meta->make_immutable;
 1;
