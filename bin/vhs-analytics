@@ -1,0 +1,89 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use DateTime;
+use DateTime::Format::DateParse;
+use Text::Graph;
+use Text::Graph::DataSet;
+
+#open(my $fh, "/var/log/vhs.log.0");
+open(my $fh, "/var/log/vhs.log");
+
+my $last_close = 0;
+my $last_flush = 0;
+
+my %stats;
+while (my $line = <$fh>) {
+    if ($line =~ m/^(.+): bathroom door close/) {
+        $last_close = DateTime::Format::DateParse->parse_datetime($1);
+    }
+    if ($line =~ m/^(.+): bathroom door open/) {
+        my $open_time = DateTime::Format::DateParse->parse_datetime($1);
+        my $closed_duration = $open_time - $last_close;
+        my $closed_secs = $closed_duration->delta_minutes * 60 + $closed_duration->delta_seconds;
+        warn "door was closed for $closed_secs\n";
+
+        $stats{close_sum} += $closed_secs;
+        $stats{close_count}++;
+    }
+    if ($line =~ m/^(.+): plunger down/) {
+        my $flush = DateTime::Format::DateParse->parse_datetime($1);
+        my $bio_time = $flush - $last_close;
+        my $bio_secs = $bio_time->delta_minutes * 60 + $bio_time->delta_seconds;
+        if ($bio_secs < 20) {
+            warn "skipping - tooo low ($bio_secs)";
+            next;
+        }
+        if ($bio_secs > 30 * 60) {
+            warn "Someone was in the can for too long: $bio_secs - skipping\n";
+            next;
+        }
+        warn "Bio time: $bio_secs\n";
+
+        $stats{bio_sum} += $bio_secs;
+        $stats{bio_count}++;
+        $last_flush = $flush;
+        push @{ $stats{bio_secs} }, $bio_secs;
+    }
+}
+
+print "\n\n";
+
+my $bio_avg = int($stats{bio_sum} / $stats{bio_count});
+print "Average bio time: $bio_avg seconds"
+    . "  (Over $stats{bio_count} trips)\n";
+my $close_avg = int($stats{close_sum} / $stats{close_count});
+print "Average close time: $close_avg seconds"
+    . "  (Over $stats{close_count} trips)\n";
+
+my $flush_rate = int($stats{bio_count} / $stats{close_count} * 100);
+print "Flush rate $flush_rate%\n";
+
+my $max = 0;
+my $min = 99999999;
+my %sum;
+for (@{ $stats{bio_secs} }) {
+    $min = $_ if $_ < $min;
+    $max = $_ if $_ > $max;
+
+    my $bucket = int($_/10) * 10;
+
+    $sum{$bucket}++;
+}
+
+print "min=$min max=$max";
+
+my @sorted_secs = sort { $a <=> $b } keys %sum;
+my $dataset = Text::Graph::DataSet->new(
+    [ map { $sum{$_} || 0 } @sorted_secs ],
+    \@sorted_secs,
+);
+
+my $graph = Text::Graph->new( 'Line',
+                              right  => 1,    # right-justify labels
+                              fill => '.',    # change fill-marker
+                              log => 1,       # logarithmic graph
+                              showval => 1    # show actual values
+                           );
+print $graph->to_string( $dataset );
+
