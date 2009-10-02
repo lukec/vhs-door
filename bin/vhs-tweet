@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use VHS;
+
+my $msg = shift;
+die "USAGE: $0 'your tweet'" unless length($msg);
+
+VHS->send_tweet($msg);
