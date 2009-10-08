@@ -9,7 +9,6 @@ exit unless $arg;
 
 my %msg_map = (
     'open' => "My $what opened!",
-    closed => "My $what closed!",
     test   => 'My systems are being tested!',
 );
 
