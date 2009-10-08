@@ -11,6 +11,7 @@ use YAML qw/LoadFile/;
 use Fatal qw/rename/;
 use Digest::SHA1 qw/sha1_hex/;
 use Parallel::ForkManager;
+use FindBin;
 
 has 'config' => (is => 'ro', lazy_build => 1);
 
