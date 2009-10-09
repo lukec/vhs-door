@@ -50,6 +50,10 @@ sub take_picture {
     my $pic_base   = $self->config->{picture_base};
     my $filename   = "$pic_base/$short_hash.jpeg";
     system("streamer -c /dev/video0 -b 16 -o $filename");
+    my $tmp = $filename . ".tmp";
+    system("jpegtran -rotate 180 $filename > $tmp");
+    rename $tmp => $filename if -e $tmp;
+
     (my $short_name = $filename) =~ s#.+/(.+).jpeg#$1.jpg#;
     my $short_file = "$pic_base/$short_name";
     rename $filename => $short_file;
