@@ -48,11 +48,9 @@ sub take_picture {
     my $now_hash   = sha1_hex(scalar localtime);
     my $short_hash = substr $now_hash, 0, 6;
     my $pic_base   = $self->config->{picture_base};
-    my $filename   = "$pic_base/$short_hash.jpeg";
-    system("streamer -c /dev/video0 -b 16 -o $filename");
-    my $tmp = $filename . ".tmp";
-    system("jpegtran -rotate 180 $filename > $tmp");
-    rename $tmp => $filename if -e $tmp;
+    my $filename   = shift || "$pic_base/$short_hash.jpeg";
+
+    $self->picture_to_file($filename);
 
     (my $short_name = $filename) =~ s#.+/(.+).jpeg#$1.jpg#;
     my $short_file = "$pic_base/$short_name";
@@ -61,6 +59,19 @@ sub take_picture {
     my $pic_uri = $self->config->{picture_uri_base} . "/$short_name";
     print "\nSaved $short_file as $pic_uri\n";
     return $pic_uri;
+}
+
+sub picture_to_file {
+    my $self     = shift;
+    my $filename = shift;
+
+    my $jpeg = "$filename.jpeg";
+    system("streamer -c /dev/video0 -b 16 -o $jpeg");
+    unless (-e $jpeg) {
+        die "Couldn't take video to $jpeg";
+    }
+    system("jpegtran -rotate 180 $jpeg > $filename");
+    unlink $jpeg;
 }
 
 sub run_command_from_arduino {
